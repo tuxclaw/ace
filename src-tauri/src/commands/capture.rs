@@ -13,6 +13,8 @@ pub async fn capture_screen_region(
     y: u32,
     width: u32,
     height: u32,
+    screen_x: u32,
+    screen_y: u32,
 ) -> Result<String, String> {
     if width == 0 || height == 0 {
         return Err("Selection must have a width and height.".to_string());
@@ -31,15 +33,15 @@ pub async fn capture_screen_region(
         .map_err(|error| format!("Screenshot request was not completed: {error}"))?;
     let screenshot_path = file_uri_to_path(screenshot.uri().as_str())?;
 
-    // Coordinates from the overlay are in CSS pixels relative to the overlay window.
-    // On multi-monitor setups, the portal screenshot covers all monitors.
-    // We need to detect the monitor offset and adjust.
-    // For now, pass screen dimensions from frontend to help with offset detection.
-    // Portal screenshot captures the focused monitor.
-    // Selection coordinates are relative to the overlay window (fullscreen on that monitor).
-    // No offset needed — coordinates are already monitor-relative.
+    // Portal screenshot captures ALL monitors (virtual screen, e.g. 4000x2560).
+    // Selection coordinates are relative to the overlay window on one monitor.
+    // screen_x/y = window.screenLeft/Top = monitor offset in virtual screen.
+    let abs_x = x + screen_x;
+    let abs_y = y + screen_y;
+    eprintln!("[ace] offset: screen=({screen_x},{screen_y}) abs=({abs_x},{abs_y})");
+
     tauri::async_runtime::spawn_blocking(move || {
-        crop_and_encode_region(&screenshot_path, x, y, width, height)
+        crop_and_encode_region(&screenshot_path, abs_x, abs_y, width, height)
     })
     .await
     .map_err(|error| format!("Screenshot encoding task failed: {error}"))?
@@ -52,11 +54,13 @@ fn crop_and_encode_region(
     width: u32,
     height: u32,
 ) -> Result<String, String> {
+    eprintln!("[ace] crop: sel=({x},{y},{width},{height})");
     let image = image::open(screenshot_path)
         .map_err(|error| format!("Failed to read portal screenshot: {error}"))?;
     let _ = fs::remove_file(screenshot_path);
 
     let (image_width, image_height) = image.dimensions();
+    eprintln!("[ace] screenshot: {image_width}x{image_height}");
     if x >= image_width || y >= image_height {
         return Err(format!(
             "Selection starts outside screenshot bounds ({image_width}x{image_height})."
