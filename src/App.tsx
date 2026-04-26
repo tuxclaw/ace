@@ -95,8 +95,6 @@ export function App() {
           y: rect.y,
           width: rect.width,
           height: rect.height,
-          screenX: window.screenLeft,
-          screenY: window.screenTop,
         });
         const analysis = await analyzeScreenshot(imageBase64);
         await emit('analysis-complete', analysis);

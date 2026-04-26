@@ -13,8 +13,6 @@ pub async fn capture_screen_region(
     y: u32,
     width: u32,
     height: u32,
-    screen_x: u32,
-    screen_y: u32,
 ) -> Result<String, String> {
     if width == 0 || height == 0 {
         return Err("Selection must have a width and height.".to_string());
@@ -37,14 +35,11 @@ pub async fn capture_screen_region(
     // On multi-monitor setups, the portal screenshot covers all monitors.
     // We need to detect the monitor offset and adjust.
     // For now, pass screen dimensions from frontend to help with offset detection.
-    // screen_x/y is the overlay window's position on the virtual screen.
-    // The selection coordinates are relative to the overlay, so we add the
-    // screen offset to get the correct crop region on the full screenshot.
-    let abs_x = x + screen_x;
-    let abs_y = y + screen_y;
-
+    // Portal screenshot captures the focused monitor.
+    // Selection coordinates are relative to the overlay window (fullscreen on that monitor).
+    // No offset needed — coordinates are already monitor-relative.
     tauri::async_runtime::spawn_blocking(move || {
-        crop_and_encode_region(&screenshot_path, abs_x, abs_y, width, height)
+        crop_and_encode_region(&screenshot_path, x, y, width, height)
     })
     .await
     .map_err(|error| format!("Screenshot encoding task failed: {error}"))?
