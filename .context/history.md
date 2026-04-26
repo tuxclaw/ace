@@ -67,3 +67,9 @@
 ## [2026-04-26] Deployed (tray version)
 **Binary:** ~/.local/bin/ace
 **MD5:** d406488ebddd7270d7357fd09aa9aa74
+
+## [2026-04-26] Wayland Portal Screenshot Capture — Dash
+**Agent:** Dash ⚡ (GPT-5.5)
+**Branch:** andy/ace-tray
+**Changes:** Replaced `xcap` with `ashpd` xdg-desktop-portal Screenshot capture. Removed X11 `DISPLAY`/`XAUTHORITY` setup, added direct `image` PNG cropping/encoding, and kept the existing Tauri command contract (`capture_screen_region` returns base64 PNG) unchanged for the React/Gemini flow.
+**Verification:** `cargo build` passes; `npm run build` passes. `cargo fmt --check` still unavailable because `cargo-fmt`/rustfmt is not installed on this host. Portal availability checked through the user bus: `org.freedesktop.portal.Desktop`, KDE portal backend, and PipeWire services are active.

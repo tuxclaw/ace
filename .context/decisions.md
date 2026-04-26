@@ -8,7 +8,7 @@
 - **Name:** ace
 - **AI backend:** Google Gemini API (`gemini-3-flash-preview`) for screenshot analysis
 - **Two-step pipeline:** Vision model reads screenshot → reasoning model answers question
-- **Capture method:** Rust `xcap` crate for cross-platform screenshot capture
+- **Capture method:** `ashpd` + xdg-desktop-portal Screenshot API for Wayland-safe screen capture
 - **Hotkey:** `tauri-plugin-global-shortcut` for system-wide capture trigger
 - **Overlay:** Transparent fullscreen Tauri window for region selection
 - **Answer display:** Floating always-on-top panel with answer + explanation
@@ -48,4 +48,14 @@
 - Global hotkey — unreliable, invisible, conflicts with other apps
 - Standalone window — too heavy for a quick-answer tool
 - Floating widget — always visible, but cluttered
+**Status:** Active
+
+## [2026-04-26] Screenshot Capture Switched to xdg-desktop-portal
+**By:** Dash (subagent)
+**Context:** `xcap` uses X11 and fails on KDE Wayland with I/O/connection errors even when XWayland is running.
+**Decision:**
+- Removed `xcap` and the `DISPLAY`/`XAUTHORITY` workaround.
+- Added `ashpd` with the `screenshot` feature and direct `image` PNG support.
+- Used the portal Screenshot API instead of raw ScreenCast/PipeWire because ace needs one still frame per region capture, not a continuous stream; this avoids hand-rolling PipeWire frame handling while still using the standard Wayland portal.
+- Crop the selected region from the portal-returned PNG and base64-encode it for the existing Gemini pipeline.
 **Status:** Active

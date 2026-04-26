@@ -1,9 +1,11 @@
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::io::Cursor;
+use std::path::PathBuf;
 
+use ashpd::desktop::screenshot::Screenshot;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use xcap::Monitor;
+use image::{GenericImageView, ImageFormat};
 
 #[tauri::command]
 pub async fn capture_screen_region(
@@ -16,72 +18,91 @@ pub async fn capture_screen_region(
         return Err("Selection must have a width and height.".to_string());
     }
 
-    tauri::async_runtime::spawn_blocking(move || capture_region_blocking(x, y, width, height))
+    let request = Screenshot::request()
+        .interactive(false)
+        .modal(false)
+        .send()
         .await
-        .map_err(|error| format!("Screenshot task failed: {error}"))?
+        .map_err(|error| {
+            format!("Failed to request screenshot through xdg-desktop-portal: {error}")
+        })?;
+    let screenshot = request
+        .response()
+        .map_err(|error| format!("Screenshot request was not completed: {error}"))?;
+    let screenshot_path = file_uri_to_path(screenshot.uri().as_str())?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        crop_and_encode_region(&screenshot_path, x, y, width, height)
+    })
+    .await
+    .map_err(|error| format!("Screenshot encoding task failed: {error}"))?
 }
 
-fn ensure_display_env() {
-    if std::env::var("DISPLAY").unwrap_or_default().is_empty() {
-        if let Ok(entries) = std::fs::read_dir("/run/user") {
-            for user_dir in entries.flatten() {
-                if let Some(uid) = user_dir.file_name().to_str() {
-                    // Try :0 as default display
-                    std::env::set_var("DISPLAY", ":0");
-                    // Find xauth file
-                    let xauth_dir = user_dir.path().join(uid);
-                    if let Ok(xauth_entries) = std::fs::read_dir(&xauth_dir) {
-                        for entry in xauth_entries.flatten() {
-                            if let Some(name) = entry.file_name().to_str() {
-                                if name.starts_with("xauth_") {
-                                    std::env::set_var("XAUTHORITY", entry.path());
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
+fn crop_and_encode_region(
+    screenshot_path: &PathBuf,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<String, String> {
+    let image = image::open(screenshot_path)
+        .map_err(|error| format!("Failed to read portal screenshot: {error}"))?;
+    let _ = fs::remove_file(screenshot_path);
+
+    let (image_width, image_height) = image.dimensions();
+    if x >= image_width || y >= image_height {
+        return Err(format!(
+            "Selection starts outside screenshot bounds ({image_width}x{image_height})."
+        ));
+    }
+
+    let crop_width = width.min(image_width - x);
+    let crop_height = height.min(image_height - y);
+    if crop_width == 0 || crop_height == 0 {
+        return Err("Selection is outside the captured screenshot.".to_string());
+    }
+
+    let cropped = image.crop_imm(x, y, crop_width, crop_height);
+    let mut png = Cursor::new(Vec::new());
+    cropped
+        .write_to(&mut png, ImageFormat::Png)
+        .map_err(|error| format!("Failed to encode screenshot: {error}"))?;
+
+    Ok(STANDARD.encode(png.into_inner()))
+}
+
+fn file_uri_to_path(uri: &str) -> Result<PathBuf, String> {
+    let encoded_path = uri
+        .strip_prefix("file://")
+        .ok_or_else(|| format!("Portal returned a non-file screenshot URI: {uri}"))?;
+    let decoded_path = percent_decode(encoded_path)?;
+    Ok(PathBuf::from(decoded_path))
+}
+
+fn percent_decode(input: &str) -> Result<String, String> {
+    let input = input.as_bytes();
+    let mut decoded = Vec::with_capacity(input.len());
+    let mut index = 0;
+
+    while index < input.len() {
+        if input[index] == b'%' {
+            if index + 2 >= input.len() {
+                return Err(
+                    "Portal screenshot URI contains an incomplete percent escape.".to_string(),
+                );
             }
+            let hex = std::str::from_utf8(&input[index + 1..index + 3])
+                .map_err(|error| format!("Invalid percent escape in screenshot URI: {error}"))?;
+            let byte = u8::from_str_radix(hex, 16)
+                .map_err(|error| format!("Invalid percent escape in screenshot URI: {error}"))?;
+            decoded.push(byte);
+            index += 3;
+        } else {
+            decoded.push(input[index]);
+            index += 1;
         }
     }
-}
 
-fn capture_region_blocking(x: u32, y: u32, width: u32, height: u32) -> Result<String, String> {
-    ensure_display_env();
-    let monitor = Monitor::from_point(x as i32, y as i32)
-        .or_else(|_| primary_monitor())
-        .map_err(|error| format!("No monitor available for screenshot capture: {error}"))?;
-
-    let monitor_x = monitor.x().unwrap_or(0);
-    let monitor_y = monitor.y().unwrap_or(0);
-    let local_x = (x as i32 - monitor_x).max(0) as u32;
-    let local_y = (y as i32 - monitor_y).max(0) as u32;
-    let image = monitor
-        .capture_region(local_x, local_y, width, height)
-        .map_err(|error| format!("Failed to capture selected region: {error}"))?;
-
-    let path = temp_png_path();
-    image
-        .save(&path)
-        .map_err(|error| format!("Failed to encode screenshot: {error}"))?;
-    let bytes = fs::read(&path).map_err(|error| format!("Failed to read encoded screenshot: {error}"))?;
-    let _ = fs::remove_file(&path);
-
-    Ok(STANDARD.encode(bytes))
-}
-
-fn primary_monitor() -> Result<Monitor, String> {
-    let monitors = Monitor::all().map_err(|error| error.to_string())?;
-    monitors
-        .into_iter()
-        .find(|monitor| monitor.is_primary().unwrap_or(false))
-        .ok_or_else(|| "Primary monitor was not found.".to_string())
-}
-
-fn temp_png_path() -> std::path::PathBuf {
-    let millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or_default();
-    std::env::temp_dir().join(format!("ace-capture-{}-{millis}.png", std::process::id()))
+    String::from_utf8(decoded)
+        .map_err(|error| format!("Portal screenshot URI is not valid UTF-8: {error}"))
 }

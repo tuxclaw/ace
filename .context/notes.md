@@ -7,10 +7,13 @@
 - Google Gemini API for vision analysis (`gemini-3-flash-preview`)
 
 ## Bazzite Build Deps
-Add to Bazzite `build.sh` for proper system support:
-- `pipewire-devel` — required by `xcap` screenshot crate
-- `mesa-libgbm-devel` — required for Wayland GBM linking
-- Current workaround: extract RPM headers to /tmp, set PKG_CONFIG_PATH/CPATH/LIBRARY_PATH
+- `xcap` has been removed; ace no longer needs direct X11/XWayland screenshot access or PipeWire development headers for app code.
+- Screenshot capture now goes through `xdg-desktop-portal` via `ashpd`, so KDE's portal backend handles Wayland-safe capture.
+
+## Wayland Screenshot Notes
+- KDE Wayland blocks direct X11-style screen capture; use the portal path instead of trying to set `DISPLAY`/`XAUTHORITY`.
+- Required user services: `xdg-desktop-portal`, `xdg-desktop-portal-kde`, and PipeWire should be active in the desktop session.
+- Portal screenshot requests may show a desktop permission prompt depending on KDE policy.
 
 ## Key Technical Challenges
 - **Region capture:** Need transparent fullscreen window, mouse drag to select region, crop image in Rust
