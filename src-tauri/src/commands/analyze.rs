@@ -111,10 +111,17 @@ fn parse_answer(content: &str) -> Result<Answer, String> {
 }
 
 fn extract_json_object(content: &str) -> Option<&str> {
-    let start = content.find('{')?;
-    let end = content.rfind('}')?;
+    // Strip markdown code fences if present (```json ... ```)
+    let stripped = content
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let start = stripped.find('{')?;
+    let end = stripped.rfind('}')?;
     if start <= end {
-        Some(&content[start..=end])
+        Some(&stripped[start..=end])
     } else {
         None
     }
