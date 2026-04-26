@@ -73,10 +73,12 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
         return Err(format!("Gemini API returned status {status}."));
     }
 
-    let completion = response
-        .json::<GeminiResponse>()
+    let response_text = response
+        .text()
         .await
-        .map_err(|error| format!("Failed to parse Gemini response: {error}"))?;
+        .map_err(|error| format!("Failed to read Gemini response: {error}"))?;
+    let completion: GeminiResponse = serde_json::from_str(&response_text)
+        .map_err(|error| format!("Failed to parse Gemini response: {error}. Body: {}", if response_text.len() > 200 { &response_text[..200] } else { &response_text }))?;
     let content = completion
         .candidates
         .first()
