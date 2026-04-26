@@ -13,8 +13,6 @@ pub async fn capture_screen_region(
     y: u32,
     width: u32,
     height: u32,
-    screen_x: u32,
-    screen_y: u32,
 ) -> Result<String, String> {
     if width == 0 || height == 0 {
         return Err("Selection must have a width and height.".to_string());
@@ -35,16 +33,43 @@ pub async fn capture_screen_region(
 
     // Portal screenshot captures ALL monitors (virtual screen, e.g. 4000x2560).
     // Selection coordinates are relative to the overlay window on one monitor.
-    // screen_x/y = window.screenLeft/Top = monitor offset in virtual screen.
-    let abs_x = x + screen_x;
-    let abs_y = y + screen_y;
-    eprintln!("[ace] offset: screen=({screen_x},{screen_y}) abs=({abs_x},{abs_y})");
+    // We need to detect which monitor the overlay is on and add its position offset.
+    // Use xrandr to get monitor positions.
+    let monitor_pos = detect_active_monitor_position();
+    let abs_x = x + monitor_pos.0;
+    let abs_y = y + monitor_pos.1;
+    eprintln!("[ace] monitor offset: ({}, {}) abs: ({abs_x},{abs_y})", monitor_pos.0, monitor_pos.1);
 
     tauri::async_runtime::spawn_blocking(move || {
         crop_and_encode_region(&screenshot_path, abs_x, abs_y, width, height)
     })
     .await
     .map_err(|error| format!("Screenshot encoding task failed: {error}"))?
+}
+
+/// Detect the position of the active monitor using xrandr.
+/// Returns (x, y) offset of the primary monitor in the virtual screen.
+fn detect_active_monitor_position() -> (u32, u32) {
+    let output = std::process::Command::new("xrandr")
+        .arg("--query")
+        .output();
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.contains("connected primary") {
+                // Format: "DP-1 connected primary 2560x1440+1440+650"
+                if let Some(geometry) = line.split_whitespace().nth(3) {
+                    let parts: Vec<&str> = geometry.split(|c: char| c == 'x' || c == '+').collect();
+                    if parts.len() >= 4 {
+                        let x = parts[2].parse::<u32>().unwrap_or(0);
+                        let y = parts[3].parse::<u32>().unwrap_or(0);
+                        return (x, y);
+                    }
+                }
+            }
+        }
+    }
+    (0, 0)
 }
 
 fn crop_and_encode_region(
