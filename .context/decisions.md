@@ -34,3 +34,18 @@
 - Used a hidden main window for the answer panel and a programmatic fullscreen transparent `capture` window for region selection.
 - Pinned `xcap` to `=0.8.2` to match the requested screenshot dependency line closely and avoid silent minor-version drift.
 - Set the Vite production target to `es2022`; the default Safari 13-style target failed esbuild transpilation with current React/Tauri dependencies.
+
+## [2026-04-26] UX Pivot — System Tray Instead of Global Hotkey
+**By:** Jack (orchestrator)
+**Context:** Global hotkey (Ctrl+Shift+A) didn't work reliably. Tux wants a system tray icon with dropdown menu instead — more discoverable, standard desktop pattern.
+**Decision:**
+- App launches to system tray (notification area icon)
+- Click tray icon → dropdown menu with options
+- Menu items: Capture, Last Answer, Quit (MVP)
+- Capture → transparent overlay for region selection
+- Remove global hotkey (replace with tray-triggered capture)
+**Alternatives considered:**
+- Global hotkey — unreliable, invisible, conflicts with other apps
+- Standalone window — too heavy for a quick-answer tool
+- Floating widget — always visible, but cluttered
+**Status:** Active

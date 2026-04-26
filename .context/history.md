@@ -47,3 +47,11 @@
 - Updated request payload to Gemini `contents[].parts[]` with PNG `inlineData`, and response parsing to `candidates[0].content.parts[0].text`.
 - Renamed the frontend hook from Venice-specific naming to `useVisionAPI` without changing the invoke contract.
 - Verification: `npm run build` succeeds; `cargo build` still blocked by missing host PipeWire development pkg-config files required by `xcap`.
+
+## [2026-04-26] Tray UX Pivot — Dash
+**Agent:** Dash ⚡ (GPT-5.5)
+**Branch:** andy/ace-tray
+**Changes:** Replaced `Ctrl+Shift+A` global shortcut with a Tauri 2 system tray menu. Added tray actions for Capture, Last Answer, and Quit; Capture emits `start-capture` for the React app, which opens the existing transparent selection overlay via a Rust command. Last Answer emits `show-answer` and reopens the existing panel only when an answer is available.
+**Rust:** Removed `tauri-plugin-global-shortcut`, enabled Tauri `tray-icon`, added tray menu setup, and exposed the existing overlay creation as `open_capture_overlay`.
+**Frontend:** Added listeners for `start-capture` and `show-answer`; Gemini screenshot analysis flow unchanged.
+**Verification:** `npm run build` passes; `cargo build` passes. `cargo fmt --check` could not run because rustfmt/cargo-fmt is not installed on this host.

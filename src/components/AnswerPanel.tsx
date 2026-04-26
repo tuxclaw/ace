@@ -94,7 +94,7 @@ export function AnswerPanel({answer, isLoading, onClose}: AnswerPanelProps) {
 
         {!isLoading && !answer ? (
           <p className="rounded-xl border border-ace-border bg-ace-bg/70 px-4 py-5 text-sm text-ace-muted">
-            Press Ctrl+Shift+A to capture a question.
+            Use the ace tray menu to capture a question.
           </p>
         ) : null}
       </section>

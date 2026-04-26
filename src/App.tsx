@@ -55,6 +55,27 @@ export function App() {
     };
   }, [captureMode, showPanel]);
 
+  useEffect(() => {
+    if (captureMode) {
+      return undefined;
+    }
+
+    const startCapturePromise = listen('start-capture', async () => {
+      setError(null);
+      await invoke('open_capture_overlay');
+    });
+    const showAnswerPromise = listen('show-answer', async () => {
+      if (answer) {
+        await showPanel();
+      }
+    });
+
+    return () => {
+      void startCapturePromise.then((unlisten) => unlisten());
+      void showAnswerPromise.then((unlisten) => unlisten());
+    };
+  }, [answer, captureMode, showPanel]);
+
   const closeWindow = useCallback(async () => {
     await appWindow.hide();
   }, [appWindow]);
