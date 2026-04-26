@@ -46,9 +46,9 @@ fn create_tray(app: &tauri::App) -> tauri::Result<()> {
             _ => {}
         });
 
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
-    }
+    let icon_bytes = include_bytes!("../icons/tray-icon.png");
+    let icon = tauri::image::Image::from_bytes(icon_bytes)?;
+    builder = builder.icon(icon);
 
     builder.build(app)?;
     Ok(())

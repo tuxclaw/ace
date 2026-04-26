@@ -79,3 +79,9 @@
 **Branch:** andy/ace-tray
 **Changes:** Updated Gemini HTTP handling to use a 120s reqwest client timeout, request `Accept-Encoding: identity`, disable automatic gzip decoding to avoid reqwest body decoder failures, read the raw body bytes before UTF-8/JSON parsing, and log response status/content-encoding/body previews for troubleshooting.
 **Verification:** `cargo build` passes. `cargo fmt --check` could not run because `cargo-fmt`/rustfmt is not installed on this host.
+
+## [2026-04-26] Custom Tray Icon — Dash
+**Agent:** Dash ⚡
+**Branch:** andy/ace-tray
+**Changes:** Updated the Tauri tray setup to load the embedded `src-tauri/icons/tray-icon.png` instead of reusing the default window icon. Enabled Tauri's `image-png` feature so `tauri::image::Image::from_bytes` can decode the bundled PNG at startup.
+**Verification:** `cargo build` passes.
