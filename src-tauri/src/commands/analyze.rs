@@ -63,6 +63,7 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
     let response = client
         .post(GEMINI_ENDPOINT)
         .header("x-goog-api-key", key.as_str())
+        .header("Accept-Encoding", "identity")
         .json(&request_body)
         .send()
         .await
