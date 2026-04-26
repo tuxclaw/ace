@@ -4,9 +4,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-const VENICE_ENDPOINT: &str = "https://api.venice.ai/api/v1/chat/completions";
-const VENICE_MODEL: &str = "qwen3-vl-235b-a22b";
-const VENICE_KEY_PATH: &str = "/home/tux/Downloads/JacksKeys/Venice.txt";
+const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
+const GEMINI_KEY_PATH: &str = "/home/tux/Downloads/JacksKeys/Google.txt";
 const VISION_PROMPT: &str = "Look at this screenshot carefully. If it contains a multiple choice question, identify the question and all answer options. Then determine the correct answer. Respond in JSON format: {\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"answer\": \"B\", \"explanation\": \"...\"}";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,18 +17,23 @@ pub struct Answer {
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatCompletionResponse {
-    choices: Vec<ChatChoice>,
+struct GeminiResponse {
+    candidates: Vec<GeminiCandidate>,
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatChoice {
-    message: ChatMessage,
+struct GeminiCandidate {
+    content: GeminiContent,
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatMessage {
-    content: String,
+struct GeminiContent {
+    parts: Vec<GeminiPart>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeminiPart {
+    text: String,
 }
 
 #[tauri::command]
@@ -37,62 +41,63 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
     let key = resolve_api_key(api_key)?;
     let client = Client::new();
     let request_body = json!({
-        "model": VENICE_MODEL,
-        "messages": [
+        "contents": [
             {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": VISION_PROMPT},
+                "parts": [
+                    {"text": VISION_PROMPT},
                     {
-                        "type": "image_url",
-                        "image_url": {"url": format!("data:image/png;base64,{image_base64}")}
+                        "inlineData": {
+                            "mimeType": "image/png",
+                            "data": image_base64,
+                        }
                     }
                 ]
             }
         ],
-        "temperature": 0.0,
-        "venice_parameters": {
-            "strip_thinking_response": true
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 2048,
         }
     });
 
     let response = client
-        .post(VENICE_ENDPOINT)
-        .bearer_auth(key)
+        .post(GEMINI_ENDPOINT)
+        .header("x-goog-api-key", key.as_str())
         .json(&request_body)
         .send()
         .await
-        .map_err(|error| format!("Venice request failed: {error}"))?;
+        .map_err(|error| format!("Gemini request failed: {error}"))?;
 
     if !response.status().is_success() {
         let status = response.status();
-        return Err(format!("Venice API returned status {status}."));
+        return Err(format!("Gemini API returned status {status}."));
     }
 
     let completion = response
-        .json::<ChatCompletionResponse>()
+        .json::<GeminiResponse>()
         .await
-        .map_err(|error| format!("Failed to parse Venice response: {error}"))?;
+        .map_err(|error| format!("Failed to parse Gemini response: {error}"))?;
     let content = completion
-        .choices
+        .candidates
         .first()
-        .map(|choice| choice.message.content.as_str())
-        .ok_or_else(|| "Venice response did not include an answer.".to_string())?;
+        .and_then(|candidate| candidate.content.parts.first())
+        .map(|part| part.text.as_str())
+        .ok_or_else(|| "Gemini response did not include an answer.".to_string())?;
 
     parse_answer(content)
 }
 
 fn resolve_api_key(api_key: String) -> Result<String, String> {
     let key = if api_key.trim().is_empty() {
-        fs::read_to_string(VENICE_KEY_PATH)
-            .map_err(|error| format!("Failed to read Venice API key file: {error}"))?
+        fs::read_to_string(GEMINI_KEY_PATH)
+            .map_err(|error| format!("Failed to read Gemini API key file: {error}"))?
     } else {
         api_key
     };
 
     let trimmed = key.trim().to_string();
     if trimmed.is_empty() {
-        Err("Venice API key is empty.".to_string())
+        Err("Gemini API key is empty.".to_string())
     } else {
         Ok(trimmed)
     }
@@ -100,7 +105,7 @@ fn resolve_api_key(api_key: String) -> Result<String, String> {
 
 fn parse_answer(content: &str) -> Result<Answer, String> {
     let cleaned = extract_json_object(content)
-        .ok_or_else(|| "Venice response did not contain a JSON object.".to_string())?;
+        .ok_or_else(|| "Gemini response did not contain a JSON object.".to_string())?;
     serde_json::from_str::<Answer>(cleaned)
         .map_err(|error| format!("Failed to parse answer JSON: {error}"))
 }

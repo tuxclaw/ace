@@ -5,7 +5,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {AnswerPanel} from './components/AnswerPanel';
 import {CaptureOverlay} from './components/CaptureOverlay';
-import {useVeniceAPI} from './hooks/useVeniceAPI';
+import {useVisionAPI} from './hooks/useVisionAPI';
 import type {Answer, SelectionRect} from './types';
 
 const PANEL_WIDTH = 460;
@@ -24,7 +24,7 @@ function errorMessage(error: unknown): string {
 export function App() {
   const captureMode = useMemo(() => isCaptureWindow(), []);
   const appWindow = getCurrentWindow();
-  const {analyzeScreenshot} = useVeniceAPI();
+  const {analyzeScreenshot} = useVisionAPI();
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

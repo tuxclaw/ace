@@ -6,14 +6,14 @@
 **Decisions:**
 - **Stack:** Tauri 2 + React + TypeScript + Tailwind (same as forge/ao-tauri)
 - **Name:** ace
-- **AI backend:** Venice API with vision model for screenshot analysis
+- **AI backend:** Google Gemini API (`gemini-3-flash-preview`) for screenshot analysis
 - **Two-step pipeline:** Vision model reads screenshot → reasoning model answers question
 - **Capture method:** Rust `xcap` crate for cross-platform screenshot capture
 - **Hotkey:** `tauri-plugin-global-shortcut` for system-wide capture trigger
 - **Overlay:** Transparent fullscreen Tauri window for region selection
 - **Answer display:** Floating always-on-top panel with answer + explanation
 - **History:** SQLite for storing past questions and answers
-- **No backend server:** All local, direct API calls to Venice
+- **No backend server:** All local, direct API calls to Gemini
 
 ## [2026-04-26] MVP Scope
 **By:** Jack (orchestrator)
@@ -21,7 +21,7 @@
 **Decisions:**
 - MVP = hotkey capture → vision analysis → answer display
 - No history/database in MVP — just show the answer
-- Single hotkey, single AI backend (Venice)
+- Single hotkey, single AI backend (Gemini)
 - Copy answer to clipboard on click
 - Dark theme (consistent with forge/ao-tauri)
 
@@ -29,7 +29,7 @@
 **By:** Dash (subagent)
 **Context:** Built the initial Tauri MVP.
 **Decisions:**
-- Kept Venice API calls in Rust so the frontend does not need to read or expose the API key; `analyze_screenshot` accepts an optional key and falls back to `/home/tux/Downloads/JacksKeys/Venice.txt` when blank.
+- Kept vision API calls in Rust so the frontend does not need to read or expose the API key; `analyze_screenshot` accepts an optional key and falls back to `/home/tux/Downloads/JacksKeys/Google.txt` when blank.
 - Registered `Ctrl+Shift+A` from Rust using `tauri-plugin-global-shortcut`; no JavaScript shortcut dependency is needed for the MVP.
 - Used a hidden main window for the answer panel and a programmatic fullscreen transparent `capture` window for region selection.
 - Pinned `xcap` to `=0.8.2` to match the requested screenshot dependency line closely and avoid silent minor-version drift.
