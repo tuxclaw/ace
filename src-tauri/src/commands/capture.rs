@@ -21,7 +21,33 @@ pub async fn capture_screen_region(
         .map_err(|error| format!("Screenshot task failed: {error}"))?
 }
 
+fn ensure_display_env() {
+    if std::env::var("DISPLAY").unwrap_or_default().is_empty() {
+        if let Ok(entries) = std::fs::read_dir("/run/user") {
+            for user_dir in entries.flatten() {
+                if let Some(uid) = user_dir.file_name().to_str() {
+                    // Try :0 as default display
+                    std::env::set_var("DISPLAY", ":0");
+                    // Find xauth file
+                    let xauth_dir = user_dir.path().join(uid);
+                    if let Ok(xauth_entries) = std::fs::read_dir(&xauth_dir) {
+                        for entry in xauth_entries.flatten() {
+                            if let Some(name) = entry.file_name().to_str() {
+                                if name.starts_with("xauth_") {
+                                    std::env::set_var("XAUTHORITY", entry.path());
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn capture_region_blocking(x: u32, y: u32, width: u32, height: u32) -> Result<String, String> {
+    ensure_display_env();
     let monitor = Monitor::from_point(x as i32, y as i32)
         .or_else(|_| primary_monitor())
         .map_err(|error| format!("No monitor available for screenshot capture: {error}"))?;
