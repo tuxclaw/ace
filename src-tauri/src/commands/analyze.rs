@@ -1,5 +1,7 @@
 use std::fs;
+use std::time::Duration;
 
+use reqwest::header::{ACCEPT, ACCEPT_ENCODING, CONTENT_ENCODING};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -39,7 +41,11 @@ struct GeminiPart {
 #[tauri::command]
 pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result<Answer, String> {
     let key = resolve_api_key(api_key)?;
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(120))
+        .no_gzip()
+        .build()
+        .map_err(|error| format!("Failed to build Gemini HTTP client: {error}"))?;
     let request_body = json!({
         "contents": [
             {
@@ -63,22 +69,41 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
     let response = client
         .post(GEMINI_ENDPOINT)
         .header("x-goog-api-key", key.as_str())
+        .header(ACCEPT, "application/json")
+        .header(ACCEPT_ENCODING, "identity")
         .json(&request_body)
         .send()
         .await
         .map_err(|error| format!("Gemini request failed: {error}"))?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        return Err(format!("Gemini API returned status {status}."));
+    let status = response.status();
+    let content_encoding = response
+        .headers()
+        .get(CONTENT_ENCODING)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("identity")
+        .to_string();
+
+    eprintln!("Gemini response status: {status}, content-encoding: {content_encoding}");
+
+    let response_bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("Failed to read Gemini response body: {error}"))?;
+    let response_text = String::from_utf8(response_bytes.to_vec()).map_err(|error| {
+        format!("Gemini response was not UTF-8 (content-encoding: {content_encoding}): {error}")
+    })?;
+    eprintln!("Gemini response preview: {}", preview(&response_text, 200));
+
+    if !status.is_success() {
+        return Err(format!(
+            "Gemini API returned status {status}. Body: {}",
+            preview(&response_text, 200)
+        ));
     }
 
-    let response_text = response
-        .text()
-        .await
-        .map_err(|error| format!("Failed to read Gemini response: {error}"))?;
     let completion: GeminiResponse = serde_json::from_str(&response_text)
-        .map_err(|error| format!("Failed to parse Gemini response: {error}. Body: {}", if response_text.len() > 200 { &response_text[..200] } else { &response_text }))?;
+        .map_err(|error| format!("Failed to parse Gemini response: {error}. Body: {}", preview(&response_text, 200)))?;
     let content = completion
         .candidates
         .first()
@@ -87,8 +112,7 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
         .ok_or_else(|| "Gemini response did not include an answer.".to_string())?;
 
     parse_answer(content).map_err(|error| {
-        let preview = if content.len() > 200 { &content[..200] } else { content };
-        format!("{error} (raw response: {preview:?})")
+        format!("{error} (raw response: {:?})", preview(content, 200))
     })
 }
 
@@ -110,9 +134,13 @@ fn resolve_api_key(api_key: String) -> Result<String, String> {
 
 fn parse_answer(content: &str) -> Result<Answer, String> {
     let cleaned = extract_json_object(content)
-        .ok_or_else(|| format!("Gemini did not return JSON. Response: {}", if content.len() > 200 { &content[..200] } else { content }))?;
+        .ok_or_else(|| format!("Gemini did not return JSON. Response: {}", preview(content, 200)))?;
     serde_json::from_str::<Answer>(cleaned)
         .map_err(|error| format!("Failed to parse answer JSON: {error}"))
+}
+
+fn preview(content: &str, max_chars: usize) -> String {
+    content.chars().take(max_chars).collect()
 }
 
 fn extract_json_object(content: &str) -> Option<&str> {
