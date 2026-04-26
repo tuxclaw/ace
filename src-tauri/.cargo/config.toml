@@ -1,0 +1,3 @@
+[env]
+# bindgen can't find stdbool.h on Bazzite — clang 21 headers are at a non-default path
+BINDGEN_EXTRA_CLANG_ARGS = "-I/usr/lib/clang/21/include"
