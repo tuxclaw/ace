@@ -55,3 +55,15 @@
 **Rust:** Removed `tauri-plugin-global-shortcut`, enabled Tauri `tray-icon`, added tray menu setup, and exposed the existing overlay creation as `open_capture_overlay`.
 **Frontend:** Added listeners for `start-capture` and `show-answer`; Gemini screenshot analysis flow unchanged.
 **Verification:** `npm run build` passes; `cargo build` passes. `cargo fmt --check` could not run because rustfmt/cargo-fmt is not installed on this host.
+
+## [2026-04-26] Tray UX Pivot — Dash
+**Agent:** Dash ⚡ (GPT-5.5)
+**Branch:** andy/ace-tray
+**Commit:** 576faa4 — Switch from global hotkey to system tray with dropdown menu
+**Changes:** Removed global-shortcut plugin, added tray-icon feature, tray menu with Capture/Last Answer/Quit, wired events to React listeners
+**Review:** Helectrix ✅ Pass (2 warnings, 1 suggestion — no blockers)
+**Build:** Bob ⚡ — 22s compile, 17.2 MB binary, MD5 d406488
+
+## [2026-04-26] Deployed (tray version)
+**Binary:** ~/.local/bin/ace
+**MD5:** d406488ebddd7270d7357fd09aa9aa74
