@@ -6,7 +6,7 @@ use serde_json::json;
 
 const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
 const GEMINI_KEY_PATH: &str = "/home/tux/Downloads/JacksKeys/Google.txt";
-const VISION_PROMPT: &str = "Look at this screenshot carefully. If it contains a multiple choice question, identify the question and all answer options. Then determine the correct answer. Respond in JSON format: {\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"answer\": \"B\", \"explanation\": \"...\"}";
+const VISION_PROMPT: &str = "Analyze this screenshot. You MUST respond with valid JSON only, no other text. If it contains a multiple choice question, use this format: {\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"answer\": \"B\", \"explanation\": \"...\"}. If there is NO question, respond with: {\"question\": \"No question found\", \"options\": [], \"answer\": \"N/A\", \"explanation\": \"The screenshot does not contain a recognizable question.\"}. Do NOT include markdown, code fences, or any text outside the JSON.";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Answer {
@@ -84,7 +84,10 @@ pub async fn analyze_screenshot(image_base64: String, api_key: String) -> Result
         .map(|part| part.text.as_str())
         .ok_or_else(|| "Gemini response did not include an answer.".to_string())?;
 
-    parse_answer(content)
+    parse_answer(content).map_err(|error| {
+        let preview = if content.len() > 200 { &content[..200] } else { content };
+        format!("{error} (raw response: {preview:?})")
+    })
 }
 
 fn resolve_api_key(api_key: String) -> Result<String, String> {
@@ -105,7 +108,7 @@ fn resolve_api_key(api_key: String) -> Result<String, String> {
 
 fn parse_answer(content: &str) -> Result<Answer, String> {
     let cleaned = extract_json_object(content)
-        .ok_or_else(|| "Gemini response did not contain a JSON object.".to_string())?;
+        .ok_or_else(|| format!("Gemini did not return JSON. Response: {}", if content.len() > 200 { &content[..200] } else { content }))?;
     serde_json::from_str::<Answer>(cleaned)
         .map_err(|error| format!("Failed to parse answer JSON: {error}"))
 }
