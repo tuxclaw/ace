@@ -6,6 +6,32 @@
 - Stack: Tauri 2 + React + TypeScript + Tailwind
 - Dispatched Dash to build MVP frontend
 
+## [2026-04-26] MVP Build — Dash
+**Agent:** Dash ⚡ (GPT-5.5)
+**Branch:** andy/ace-mvp
+**Commit:** af37991 — Build ace MVP — AI screenshot answer tool
+**Files:** Full Tauri 2 scaffold with Rust backend + React frontend
+**Notes:** Initial build used Venice API with qwen3-vl-235b-a22b
+
+## [2026-04-26] Switch to Gemini 3 Flash — Dash
+**Agent:** Dash ⚡ (GPT-5.5)
+**Branch:** andy/ace-mvp
+**Commit:** 149b101 — Switch to Google Gemini 3 Flash for vision analysis
+**Notes:** Tux prefers Gemini 3 Flash for vision. Uses generateContent API with inlineData.
+
+## [2026-04-26] Rust Build Fixed — Jack
+**Agent:** Jack (manual)
+**Notes:** Bazzite /usr is read-only. Extracted pipewire-devel RPM to /tmp, set PKG_CONFIG_PATH/CPATH/LIBRARY_PATH. Also needed libgbm.so symlink. Cargo build succeeds.
+
+## [2026-04-26] Helectrix Review
+**Agent:** Helectrix ⚡
+**Verdict:** ✅ Pass (2 minor warnings, 1 false-positive blocker)
+**Notes:** Duplicate invoke import (cosmetic), unused apiKey param (cosmetic), API key path (correct — JacksKeys/Google.txt)
+
+## [2026-04-26] Deployed
+**Repo:** https://github.com/tuxclaw/ace
+**Branch:** andy/ace-mvp
+
 ## [2026-04-26] MVP Built
 - Built Tauri 2 + React 19 + TypeScript + Tailwind app structure.
 - Added Rust commands for region screenshot capture, Venice vision analysis, and clipboard copy.

@@ -6,6 +6,12 @@
 - React frontend handles: region selection overlay, answer display panel
 - Google Gemini API for vision analysis (`gemini-3-flash-preview`)
 
+## Bazzite Build Deps
+Add to Bazzite `build.sh` for proper system support:
+- `pipewire-devel` — required by `xcap` screenshot crate
+- `mesa-libgbm-devel` — required for Wayland GBM linking
+- Current workaround: extract RPM headers to /tmp, set PKG_CONFIG_PATH/CPATH/LIBRARY_PATH
+
 ## Key Technical Challenges
 - **Region capture:** Need transparent fullscreen window, mouse drag to select region, crop image in Rust
 - **Always-on-top answer panel:** Separate Tauri window, positioned top-right, stays on top
